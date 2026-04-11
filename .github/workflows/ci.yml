@@ -23,8 +23,7 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Typecheck & emit dist
-        run: npm run build
-
-      - name: Run tests
-        run: node --experimental-strip-types --test "test/**/*.test.ts"
+      # npm test = build + node test (same as local). Globs: `test/**/*.ts` alone
+      # does not match files directly under test/ on Linux — include `test/*.test.ts`.
+      - name: Build and test
+        run: npm test
