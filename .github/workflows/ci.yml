@@ -12,7 +12,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20, 22]
+        # Native .ts tests use --experimental-strip-types (Node 22.6+ only; not in Node 20).
+        node-version: [22, 24]
     steps:
       - uses: actions/checkout@v4
 

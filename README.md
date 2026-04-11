@@ -10,7 +10,8 @@ Wire format is defined in [PROTOCOL.md](./PROTOCOL.md). Metrics semantics align 
 
 ## Requirements
 
-- Node **20+** (for `node --experimental-strip-types` tests), or **Bun** for examples.
+- Node **20+** to **consume** the built package (`dist/` is plain JS).
+- Node **22.6+** to run **`npm test`** / **`npm run verify`** (TypeScript test files via `node --experimental-strip-types`), or **Bun** for examples.
 - TypeScript **5.7+** to build `dist/` (`npm run build`).
 
 ## Install / build
