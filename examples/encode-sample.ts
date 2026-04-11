@@ -15,7 +15,7 @@ const tel = encodeTelemetrySummaryFrame(
     lonE7: 1139744550,
     speedMmS: 3_500,
     spmX100: 7_200,
-    dpsX100: 2_900,
+    dpsX100: 292,
     telemetryFlags: 1,
   },
 );

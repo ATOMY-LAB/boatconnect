@@ -24,7 +24,8 @@ function alignToMagic(buf: Uint8Array): Uint8Array {
  * Incrementally parses length-prefixed frames from a byte stream (TCP / WebSocket binary).
  */
 export class FrameParser {
-  private buf = new Uint8Array(0);
+  /** `subarray()` is typed with `ArrayBufferLike`; keep field wide so TS 5.7+ accepts it. */
+  private buf: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
 
   push(chunk: Uint8Array, onFrame: FrameHandler): void {
     const next = new Uint8Array(this.buf.byteLength + chunk.byteLength);

@@ -15,6 +15,8 @@ export class FleetHub {
   private readonly parser = new FrameParser();
   private readonly listeners = new Set<FleetListener>();
   private readonly lastByBoat = new Map<number, DecodedFrame>();
+  /** Wall-clock ms (`Date.now()`) when each boat last emitted a frame. */
+  private readonly lastSeenMs = new Map<number, number>();
 
   /**
    * Feed bytes from **one** TCP/WebSocket connection. Do not interleave multiple sockets here;
@@ -37,6 +39,7 @@ export class FleetHub {
 
   private dispatch(frame: DecodedFrame): void {
     this.lastByBoat.set(frame.boatId, frame);
+    this.lastSeenMs.set(frame.boatId, Date.now());
     for (const l of this.listeners) l({ boatId: frame.boatId, frame });
   }
 
@@ -49,8 +52,35 @@ export class FleetHub {
     return this.lastByBoat.get(boatId);
   }
 
+  /** Last `Date.now()` when a frame was observed for this boat, or undefined if never seen. */
+  getLastSeenMs(boatId: number): number | undefined {
+    return this.lastSeenMs.get(boatId);
+  }
+
+  /** True if the boat was never seen or its last frame is older than `maxAgeMs` (relative to `Date.now()`). */
+  isStale(boatId: number, maxAgeMs: number, nowMs: number = Date.now()): boolean {
+    const t = this.lastSeenMs.get(boatId);
+    if (t === undefined) return true;
+    return nowMs - t > maxAgeMs;
+  }
+
   snapshot(): Map<number, DecodedFrame> {
     return new Map(this.lastByBoat);
+  }
+
+  snapshotLastSeenMs(): Map<number, number> {
+    return new Map(this.lastSeenMs);
+  }
+
+  clearBoat(boatId: number): void {
+    this.lastByBoat.delete(boatId);
+    this.lastSeenMs.delete(boatId);
+  }
+
+  resetAll(): void {
+    this.lastByBoat.clear();
+    this.lastSeenMs.clear();
+    this.parser.reset();
   }
 
   resetParser(): void {

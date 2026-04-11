@@ -6,6 +6,8 @@ Wire format is defined in [PROTOCOL.md](./PROTOCOL.md). Metrics semantics align 
 
 **Repository:** [github.com/ATOMY-LAB/boatconnect](https://github.com/ATOMY-LAB/boatconnect)
 
+[![CI](https://github.com/ATOMY-LAB/boatconnect/actions/workflows/ci.yml/badge.svg)](https://github.com/ATOMY-LAB/boatconnect/actions/workflows/ci.yml)
+
 ## Requirements
 
 - Node **20+** (for `node --experimental-strip-types` tests), or **Bun** for examples.
@@ -18,7 +20,10 @@ git clone https://github.com/ATOMY-LAB/boatconnect.git
 cd boatconnect
 npm install
 npm run build
+npm test
 ```
+
+CI runs the same checks on Node 20 and 22 (see `.github/workflows/ci.yml`).
 
 ## Quick usage
 
@@ -46,7 +51,7 @@ await tcp.send(
       lonE7: 0,
       speedMmS: 3000,
       spmX100: 7200,
-      dpsX100: 2500,
+      dpsX100: 250,
       telemetryFlags: 0,
     },
   ),
@@ -55,12 +60,19 @@ await tcp.send(
 
 UDP: run `bun examples/udp-listen.ts` and send one **complete frame per datagram** (e.g. from firmware).
 
+## Metrics & fleet health
+
+- **DPS** — `dpsFromSpeedMpsAndSpm`, `dpsX100FromSpeedMmSAndSpmX100` match speedcoach-style DPS = speed / (SPM/60).
+- **Scaling** — `latLonToE7`, `speedMpsToMmS`, `spmToX100` convert floats to on-wire integers.
+- **Stroke rate (analysis)** — `StrokeRateEstimator` is a simple scalar peak detector for replay or bench processing (not a firmware port).
+- **FleetHub** — `getLastSeenMs`, `isStale`, `snapshotLastSeenMs`, `clearBoat`, `resetAll` for connection freshness per `boatId`.
+
 ## Scripts
 
 | Script | Description |
 |--------|-------------|
 | `npm run build` | Emit `dist/` |
-| `npm test` | Codec/parser tests |
+| `npm test` / `npm run verify` | Build, then run all `test/*.test.ts` |
 | `bun examples/encode-sample.ts` | Print sample frames |
 | `bun examples/udp-listen.ts` | Listen UDP (default port 9100) |
 | `bun examples/udp-send.ts` | Send sample UDP frames (`HOST` / `PORT` env) |

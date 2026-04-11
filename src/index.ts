@@ -33,3 +33,13 @@ export { TcpClientTransport, type TcpClientOptions } from "./transports/tcp-clie
 export { TcpServerTransport, type TcpServerOptions } from "./transports/tcp-server.js";
 export { UdpListenerTransport, type UdpListenerOptions } from "./transports/udp-listener.js";
 export { UdpSenderTransport, type UdpSenderOptions } from "./transports/udp-sender.js";
+
+export {
+  dpsFromSpeedMpsAndSpm,
+  dpsX100FromSpeedMmSAndSpmX100,
+  StrokeRateEstimator,
+  latLonToE7,
+  speedMpsToMmS,
+  spmToX100,
+  type StrokeRateEstimatorOptions,
+} from "./metrics/index.js";

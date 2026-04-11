@@ -13,7 +13,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "npm run build && node --experimental-strip-types --test test/*.test.ts",
+    "verify": "npm run build && node --experimental-strip-types --test \"test/**/*.test.ts\"",
+    "test": "npm run build && node --experimental-strip-types --test \"test/**/*.test.ts\"",
     "example:encode": "bun examples/encode-sample.ts",
     "example:udp-listen": "bun examples/udp-listen.ts",
     "example:ws-bun": "bun examples/ws-bun-server.ts",
