@@ -16,7 +16,7 @@ export {
   type EncodeFrameInput,
 } from "./codec/frame.js";
 export { encodeTelemetrySummary, decodeTelemetrySummary, TELEMETRY_SUMMARY_PAYLOAD_SIZE } from "./codec/payload.js";
-export { FrameParser, type FrameHandler } from "./codec/stream-parser.js";
+export { FrameParser, type FrameHandler, type FrameParserOptions } from "./codec/stream-parser.js";
 
 export { MessageType, type MessageTypeId } from "./types/message-type.js";
 export { TelemetryFlag, type TelemetrySummary } from "./types/telemetry.js";
@@ -28,7 +28,12 @@ export type {
   DecodedUnknown,
 } from "./types/frame.js";
 
-export { FleetHub, type FleetFrameEvent, type FleetListener } from "./session/fleet-hub.js";
+export {
+  FleetHub,
+  type FleetFrameEvent,
+  type FleetHubOptions,
+  type FleetListener,
+} from "./session/fleet-hub.js";
 export { TcpClientTransport, type TcpClientOptions } from "./transports/tcp-client.js";
 export { TcpServerTransport, type TcpServerOptions } from "./transports/tcp-server.js";
 export { UdpListenerTransport, type UdpListenerOptions } from "./transports/udp-listener.js";

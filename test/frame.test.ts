@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  BoatConnectError,
   crc32,
   decodeFrame,
   encodeHeartbeat,
@@ -78,4 +79,37 @@ test("FrameParser splits across chunks", () => {
 test("crc32 matches known vector", () => {
   const data = new TextEncoder().encode("123456789");
   assert.equal(crc32(data), 0xcbf43926);
+});
+
+test("FrameParser reports CRC error then continues when onDecodeError", () => {
+  const good = encodeHeartbeat({ boatId: 1, seq: 1 });
+  const bad = new Uint8Array(good);
+  bad[bad.byteLength - 1] ^= 0xff;
+  const combined = new Uint8Array(bad.length + good.length);
+  combined.set(bad, 0);
+  combined.set(good, bad.length);
+
+  const errors: BoatConnectError[] = [];
+  const seqs: number[] = [];
+  const parser = new FrameParser({
+    onDecodeError: (e) => errors.push(e),
+  });
+  parser.push(combined, (f) => seqs.push(f.seq));
+
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0]!.code, "CRC");
+  assert.deepEqual(seqs, [1]);
+});
+
+test("FrameParser skips garbage prefix then parses frame", () => {
+  const good = encodeHeartbeat({ boatId: 2, seq: 7 });
+  const junk = new Uint8Array([0, 1, 2, 3, 4, 5]);
+  const combined = new Uint8Array(junk.length + good.length);
+  combined.set(junk, 0);
+  combined.set(good, junk.length);
+
+  const seqs: number[] = [];
+  const parser = new FrameParser();
+  parser.push(combined, (f) => seqs.push(f.seq));
+  assert.deepEqual(seqs, [7]);
 });

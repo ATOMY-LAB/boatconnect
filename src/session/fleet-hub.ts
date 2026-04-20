@@ -1,10 +1,16 @@
 import { decodeFrame } from "../codec/frame.js";
 import { FrameParser } from "../codec/stream-parser.js";
+import { BoatConnectError } from "../codec/errors.js";
 import type { DecodedFrame } from "../types/frame.js";
 
 export type FleetFrameEvent = { boatId: number; frame: DecodedFrame };
 
 export type FleetListener = (event: FleetFrameEvent) => void;
+
+export type FleetHubOptions = {
+  /** When set, `feedDatagram` / stream decode failures invoke this and are not thrown. */
+  onDecodeError?: (err: BoatConnectError) => void;
+};
 
 /**
  * Multiplexes decoded frames from UDP datagrams and from one or more **independent** byte streams.
@@ -12,15 +18,26 @@ export type FleetListener = (event: FleetFrameEvent) => void;
  */
 export class FleetHub {
   /** Shared parser for a single stream only (e.g. one `TcpClientTransport`). */
-  private readonly parser = new FrameParser();
+  private readonly parser: FrameParser;
   private readonly listeners = new Set<FleetListener>();
   private readonly lastByBoat = new Map<number, DecodedFrame>();
   /** Wall-clock ms (`Date.now()`) when each boat last emitted a frame. */
   private readonly lastSeenMs = new Map<number, number>();
+  private readonly onDecodeError?: (err: BoatConnectError) => void;
+
+  constructor(options?: FleetHubOptions) {
+    this.onDecodeError = options?.onDecodeError;
+    this.parser = new FrameParser({ onDecodeError: options?.onDecodeError });
+  }
+
+  /** Parser for an extra TCP/WebSocket socket; shares the same `onDecodeError` policy as this hub. */
+  createStreamParser(): FrameParser {
+    return new FrameParser({ onDecodeError: this.onDecodeError });
+  }
 
   /**
    * Feed bytes from **one** TCP/WebSocket connection. Do not interleave multiple sockets here;
-   * use a dedicated `FrameParser` per socket and call `ingestDecoded` instead.
+   * use `createStreamParser()` per socket and call `ingestDecoded` instead.
    */
   feedStream(chunk: Uint8Array): void {
     this.parser.push(chunk, (frame) => this.dispatch(frame));
@@ -28,8 +45,18 @@ export class FleetHub {
 
   /** One complete binary frame per UDP datagram. */
   feedDatagram(datagram: Uint8Array): void {
-    const frame = decodeFrame(datagram);
-    this.dispatch(frame);
+    try {
+      const frame = decodeFrame(datagram);
+      this.dispatch(frame);
+    } catch (e) {
+      if (e instanceof BoatConnectError) {
+        if (this.onDecodeError) {
+          this.onDecodeError(e);
+          return;
+        }
+      }
+      throw e;
+    }
   }
 
   /** Apply an already-decoded frame (e.g. from a per-connection `FrameParser`). */

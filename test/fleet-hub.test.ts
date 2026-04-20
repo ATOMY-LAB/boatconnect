@@ -52,3 +52,47 @@ test("FleetHub snapshotLastSeenMs and resetAll", () => {
   assert.equal(hub.getLastSeenMs(1), undefined);
   assert.equal(hub.snapshotLastSeenMs().size, 0);
 });
+
+test("FleetHub feedDatagram bad magic invokes onDecodeError", () => {
+  const errors: string[] = [];
+  const hub = new FleetHub({
+    onDecodeError: (e) => errors.push(e.code),
+  });
+  const pkt = encodeHeartbeat({ boatId: 1, seq: 1 });
+  const wrongMagic = new Uint8Array(pkt);
+  wrongMagic[0] = 0xff;
+  hub.feedDatagram(wrongMagic);
+  assert.deepEqual(errors, ["MAGIC"]);
+  assert.equal(hub.getLast(1), undefined);
+});
+
+test("FleetHub feedStream tolerates corrupt frame when onDecodeError", () => {
+  const errors: string[] = [];
+  const hub = new FleetHub({
+    onDecodeError: (e) => errors.push(e.code),
+  });
+  const a = encodeHeartbeat({ boatId: 3, seq: 1 });
+  const bad = new Uint8Array(a);
+  bad[bad.byteLength - 1] ^= 0xff;
+  const b = encodeHeartbeat({ boatId: 3, seq: 2 });
+  const combined = new Uint8Array(bad.length + b.length);
+  combined.set(bad, 0);
+  combined.set(b, bad.length);
+
+  hub.feedStream(combined);
+  assert.deepEqual(errors, ["CRC"]);
+  assert.equal(hub.getLast(3)?.seq, 2);
+});
+
+test("FleetHub createStreamParser shares onDecodeError", () => {
+  const errors: string[] = [];
+  const hub = new FleetHub({
+    onDecodeError: (e) => errors.push(e.code),
+  });
+  const parser = hub.createStreamParser();
+  const raw = encodeHeartbeat({ boatId: 4, seq: 1 });
+  const corrupt = new Uint8Array(raw);
+  corrupt[corrupt.byteLength - 1] ^= 0xff;
+  parser.push(corrupt, (f) => hub.ingestDecoded(f));
+  assert.deepEqual(errors, ["CRC"]);
+});

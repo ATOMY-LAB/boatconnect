@@ -1,5 +1,4 @@
 import * as net from "node:net";
-import { FrameParser } from "../codec/stream-parser.js";
 import type { FleetHub } from "../session/fleet-hub.js";
 
 export type TcpServerOptions = {
@@ -20,7 +19,7 @@ export class TcpServerTransport {
   start(): Promise<void> {
     return new Promise((resolve, reject) => {
       const srv = net.createServer((socket) => {
-        const parser = new FrameParser();
+        const parser = this.opts.hub.createStreamParser();
         socket.on("data", (buf: Buffer) => {
           parser.push(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength), (frame) =>
             this.opts.hub.ingestDecoded(frame),

@@ -5,6 +5,8 @@ export type TcpClientOptions = {
   host: string;
   port: number;
   hub: FleetHub;
+  /** Called for socket errors after `connect()` resolves (and optionally for late errors). */
+  onSocketError?: (err: Error) => void;
 };
 
 /**
@@ -25,7 +27,10 @@ export class TcpClientTransport {
       s.on("data", (buf: Buffer) => {
         this.opts.hub.feedStream(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength));
       });
-      s.once("error", reject);
+      s.on("error", (err) => {
+        if (!this.socket) reject(err);
+        else this.opts.onSocketError?.(err);
+      });
     });
   }
 

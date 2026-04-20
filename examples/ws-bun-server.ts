@@ -5,7 +5,7 @@
  *   bun examples/ws-bun-server.ts
  */
 import { FleetHub } from "../src/session/fleet-hub.ts";
-import { FrameParser } from "../src/codec/stream-parser.ts";
+import type { FrameParser } from "../src/codec/stream-parser.ts";
 
 const port = Number(process.env.PORT ?? "9200");
 const hub = new FleetHub();
@@ -24,7 +24,7 @@ Bun.serve({
   },
   websocket: {
     open(ws) {
-      parsers.set(ws, new FrameParser());
+      parsers.set(ws, hub.createStreamParser());
       console.log("ws client connected");
     },
     message(ws, message) {

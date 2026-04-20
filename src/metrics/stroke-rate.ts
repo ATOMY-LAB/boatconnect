@@ -18,6 +18,7 @@ export class StrokeRateEstimator {
   private readonly buf: { t: number; v: number }[] = [];
   private lastPeakT = -Infinity;
   private readonly strokeTimes: number[] = [];
+  private strokeHead = 0;
 
   constructor(opts: StrokeRateEstimatorOptions) {
     this.threshold = opts.threshold;
@@ -49,7 +50,7 @@ export class StrokeRateEstimator {
     this.pruneOldStrokes(nowMs);
     const start = nowMs - this.spmWindowMs;
     let n = 0;
-    for (let i = this.strokeTimes.length - 1; i >= 0; i--) {
+    for (let i = this.strokeTimes.length - 1; i >= this.strokeHead; i--) {
       const t = this.strokeTimes[i]!;
       if (t < start) break;
       n++;
@@ -62,12 +63,17 @@ export class StrokeRateEstimator {
     this.buf.length = 0;
     this.lastPeakT = -Infinity;
     this.strokeTimes.length = 0;
+    this.strokeHead = 0;
   }
 
   private pruneOldStrokes(nowMs: number): void {
     const cutoff = nowMs - this.spmWindowMs * 2;
-    while (this.strokeTimes.length > 0 && this.strokeTimes[0]! < cutoff) {
-      this.strokeTimes.shift();
+    while (this.strokeHead < this.strokeTimes.length && this.strokeTimes[this.strokeHead]! < cutoff) {
+      this.strokeHead++;
+    }
+    if (this.strokeHead > 0 && this.strokeHead * 2 >= this.strokeTimes.length) {
+      this.strokeTimes.splice(0, this.strokeHead);
+      this.strokeHead = 0;
     }
   }
 }

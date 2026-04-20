@@ -1,23 +1,31 @@
-import { decodeFrame } from "./frame.js";
-import { trySliceOneFrame } from "./frame.js";
+import { decodeFrame, trySliceOneFrame } from "./frame.js";
 import { FRAME_MAGIC } from "./constants.js";
+import { BoatConnectError } from "./errors.js";
 import type { DecodedFrame } from "../types/frame.js";
 
 export type FrameHandler = (frame: DecodedFrame) => void;
 
-function alignToMagic(buf: Uint8Array): Uint8Array {
-  if (buf.byteLength < 4) return buf;
-  for (let i = 0; i <= buf.byteLength - 4; i++) {
+export type FrameParserOptions = {
+  /** When set, decode failures are reported here and the bad frame is skipped; otherwise errors propagate. */
+  onDecodeError?: (err: BoatConnectError) => void;
+};
+
+/** Move bytes so the buffer starts at magic (or keep last 3 bytes if no magic). Returns new used length. */
+function alignMagicFront(buf: Uint8Array, len: number): number {
+  if (len < 4) return len;
+  for (let i = 0; i <= len - 4; i++) {
     if (
       buf[i] === FRAME_MAGIC[0] &&
       buf[i + 1] === FRAME_MAGIC[1] &&
       buf[i + 2] === FRAME_MAGIC[2] &&
       buf[i + 3] === FRAME_MAGIC[3]
     ) {
-      return i === 0 ? buf : buf.subarray(i);
+      if (i > 0) buf.copyWithin(0, i, len);
+      return len - i;
     }
   }
-  return buf.subarray(buf.byteLength - 3);
+  buf.copyWithin(0, len - 3, len);
+  return 3;
 }
 
 /**
@@ -26,30 +34,57 @@ function alignToMagic(buf: Uint8Array): Uint8Array {
 export class FrameParser {
   /** `subarray()` is typed with `ArrayBufferLike`; keep field wide so TS 5.7+ accepts it. */
   private buf: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
+  private len = 0;
+  private readonly onDecodeError?: (err: BoatConnectError) => void;
+
+  constructor(options?: FrameParserOptions) {
+    this.onDecodeError = options?.onDecodeError;
+  }
 
   push(chunk: Uint8Array, onFrame: FrameHandler): void {
-    const next = new Uint8Array(this.buf.byteLength + chunk.byteLength);
-    next.set(this.buf, 0);
-    next.set(chunk, this.buf.byteLength);
-    this.buf = alignToMagic(next);
+    const need = this.len + chunk.byteLength;
+    if (need > this.buf.byteLength) {
+      let cap = this.buf.byteLength || 64;
+      while (cap < need) cap *= 2;
+      const next = new Uint8Array(cap);
+      if (this.len > 0) next.set(this.buf.subarray(0, this.len), 0);
+      this.buf = next;
+    }
+    this.buf.set(chunk, this.len);
+    this.len = need;
 
-    while (this.buf.byteLength > 0) {
-      const sliced = trySliceOneFrame(this.buf);
+    this.len = alignMagicFront(this.buf, this.len);
+
+    while (this.len > 0) {
+      const window = this.buf.subarray(0, this.len);
+      const sliced = trySliceOneFrame(window);
       if (!sliced) {
-        this.buf = alignToMagic(this.buf);
+        this.len = alignMagicFront(this.buf, this.len);
         break;
       }
-      this.buf = sliced.rest;
-      onFrame(decodeFrame(sliced.frame));
+      const frameLen = sliced.frame.byteLength;
+      try {
+        onFrame(decodeFrame(sliced.frame));
+      } catch (e) {
+        if (e instanceof BoatConnectError) {
+          if (this.onDecodeError) this.onDecodeError(e);
+          else throw e;
+        } else {
+          throw e;
+        }
+      }
+      this.buf.copyWithin(0, frameLen, this.len);
+      this.len -= frameLen;
     }
   }
 
   reset(): void {
     this.buf = new Uint8Array(0);
+    this.len = 0;
   }
 
   /** Bytes waiting for a complete frame (for debugging). */
   pendingLength(): number {
-    return this.buf.byteLength;
+    return this.len;
   }
 }
