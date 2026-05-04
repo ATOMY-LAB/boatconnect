@@ -46,6 +46,23 @@ Pack with `#pragma pack(push, 1)` or `__attribute__((packed))`. Send the **exact
 
 Reference headers (little-endian, CRC-32 helper): [`firmware/boatconnect_frame_v1.h`](firmware/boatconnect_frame_v1.h), [`firmware/boatconnect_crc32.c`](firmware/boatconnect_crc32.c).
 
+## BLE Mesh carriage
+
+Frames may also be carried over Bluetooth Mesh by an ESP-BLE-Mesh vendor model. The wire format is unchanged: **one full `BTC1` frame is sent as the access-layer payload of one vendor opcode**. The receiving gateway forwards those bytes verbatim to USB CDC / UART, and the host-side `SerialPortTransport` parses them with the same `FrameParser` used for TCP and WebSocket.
+
+| Item | Value |
+|------|-------|
+| Company ID (CID) | `0x02E5` (Espressif test — replace before production) |
+| Vendor model ID, server (boat) | `0x0001` |
+| Vendor model ID, client (gateway) | `0x0002` |
+| Opcode `BTC1_PUBLISH` | `OP_3(0x01, CID)` |
+| Opcode `BTC1_PUBLISH_ACK` | `OP_3(0x02, CID)` (reserved) |
+| Default group address | `0xC000` (boat → gateway) |
+
+A segmented BLE Mesh access PDU carries up to ~380 bytes of payload. Heartbeat (22 B) and `telemetrySummary` (48 B) frames fit easily in one PDU. **For BLE Mesh carriage, keep the total frame size (header + payload + CRC) ≤ 350 bytes.** The `MAX_PAYLOAD_LEN = 2048` limit still applies for IP transports (UDP/TCP/WebSocket).
+
+Reference firmware: [`firmware/esp_ble_mesh_node/`](firmware/esp_ble_mesh_node/) (boat) and [`firmware/esp_ble_mesh_gateway/`](firmware/esp_ble_mesh_gateway/) (coach gateway). Both consume the canonical headers via [`firmware/components/boatconnect_frame/`](firmware/components/boatconnect_frame/).
+
 ## Metrics semantics
 
 SPM and DPS follow [ATOMY-LAB/speedcoach](https://github.com/ATOMY-LAB/speedcoach) intent: DPS = speed / (SPM/60) when SPM &gt; 0. On-encoder values may be precomputed and sent as scaled integers above.

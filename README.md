@@ -79,10 +79,39 @@ UDP: run `bun examples/udp-listen.ts` and send one **complete frame per datagram
 | `bun examples/udp-send.ts` | Send sample UDP frames (`HOST` / `PORT` env) |
 | `bun examples/tcp-server.ts` | TCP server: decode inbound streams (port `9000`) |
 | `bun examples/ws-bun-server.ts` | Bun WebSocket ingest (default port 9200) |
+| `bun examples/serial-listen.ts` | Serial / USB-CDC ingest from a BLE Mesh gateway (`PORT` env) |
 
 ## Firmware
 
-See [`firmware/`](firmware/) for packed C structs and a reference `bc_crc32` implementation matching the wire CRC.
+See [`firmware/`](firmware/) for packed C structs and a reference `bc_crc32` implementation matching the wire CRC, plus two ESP-IDF reference projects: a BLE Mesh boat node and a coach gateway.
+
+## BLE Mesh transport
+
+Boats can ship `BTC1` frames over Bluetooth Mesh (multi-hop relay between ESP32 nodes) when Wi-Fi is not available on the water. The wire format is unchanged — a `BTC1` frame is the access-layer payload of one vendor-model opcode. The coach gateway forwards received bytes verbatim to USB CDC, and `SerialPortTransport` feeds them into `FleetHub` exactly like a TCP socket.
+
+```mermaid
+flowchart LR
+    B1[Boat ESP32 node] -->|BLE Mesh relay| B2[Boat ESP32 node]
+    B2 -->|BLE Mesh| GW[Coach ESP32 gateway]
+    B3[Boat ESP32 node] -->|BLE Mesh| B2
+    GW -->|USB CDC raw BTC1 bytes| Host[Coach laptop]
+    Host --> SP[SerialPortTransport]
+    SP --> FH[FleetHub]
+```
+
+Reference firmware: [`firmware/esp_ble_mesh_node/`](firmware/esp_ble_mesh_node/), [`firmware/esp_ble_mesh_gateway/`](firmware/esp_ble_mesh_gateway/), build instructions in [`firmware/README.md`](firmware/README.md). Wire-level details for BLE Mesh carriage (CID, model ids, opcodes, size guidance) are in [PROTOCOL.md](./PROTOCOL.md).
+
+`SerialPortTransport` requires the optional `serialport` dependency (installed automatically via `npm install`). For a star-only fallback without mesh — e.g., short-range regattas where every boat is in single-hop range — [olegv142/esp32-ble-uart-mx](https://github.com/olegv142/esp32-ble-uart-mx) is a useful BLE-NUS bridge that can carry the same `BTC1` byte stream.
+
+```ts
+import { FleetHub, SerialPortTransport } from "boatconnect";
+
+const hub = new FleetHub();
+hub.subscribe(({ boatId, frame }) => console.log(boatId, frame.msgType, frame.seq));
+
+const serial = new SerialPortTransport({ hub, path: "/dev/ttyACM0", baudRate: 115200 });
+await serial.start();
+```
 
 ## Multi-connection note
 
