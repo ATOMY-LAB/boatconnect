@@ -19,15 +19,24 @@
     "example:udp-listen": "bun examples/udp-listen.ts",
     "example:ws-bun": "bun examples/ws-bun-server.ts",
     "example:tcp-server": "bun examples/tcp-server.ts",
-    "example:udp-send": "bun examples/udp-send.ts"
+    "example:udp-send": "bun examples/udp-send.ts",
+    "example:serial-listen": "bun examples/serial-listen.ts"
   },
   "engines": {
     "node": ">=20"
   },
-  "keywords": ["dragon-boat", "telemetry", "binary", "esp32"],
+  "keywords": [
+    "dragon-boat",
+    "telemetry",
+    "binary",
+    "esp32"
+  ],
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^22.10.0",
     "typescript": "^5.7.2"
+  },
+  "optionalDependencies": {
+    "serialport": "^12.0.0"
   }
 }
